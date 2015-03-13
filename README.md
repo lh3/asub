@@ -3,7 +3,7 @@
 #### What is asub used for?
 
 `asub` stands for "array submission". It greatly simplifies batch job
-submission on LSF (or Grid Engine with limited support). Briefly, it reads
+submission on LSF (or Grid Engine with limited support). Briefly, it reads mutually independent
 command lines from stdin or from a shell script and creates a job array with
 each job for one or multiple command lines in the input.
 
@@ -29,7 +29,7 @@ below).
 
 In addition to array submission, `asub` also simplifies resource requirement.
 You can submit a multi-threaded job without `-R'span[hosts=1]'`, or set a
-memory limit with `-R'rusage[mem=4096]'` (and you don't need to remember
+memory limit without `-R'rusage[mem=4096]'` (and you don't need to remember
 4096 is the per-task limit, not the total limit). `asub` can also optionally
 group multiple command lines into one job. This feature could be helpful if
 each individual command line runs too fast.
