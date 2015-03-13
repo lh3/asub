@@ -53,7 +53,7 @@ if (!$is_run) { # prepare to run
 	  } else {
 		$opts{R} = qq/-R "select[mem>$opts{M}] rusage[mem=$opts{M}]"/;
 	  }
-	  $opts{R} .= ' -M ' . $opts{M};
+	  $opts{R} .= ' -M ' . ($opts{M}*1000);
 	}
 	$cmd = qq(mkdir -p $_.out $_.err && echo '$0 -j $_.sh -k \${LSB_JOBINDEX}' | bsub -J$_)
 	  . qq("[1-$K]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{n} $opts{R} $opts{q} $opts{w} $opts{m} $opts{W});
