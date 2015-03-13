@@ -8,7 +8,7 @@ use Getopt::Std;
 use Cwd qw/abs_path/;
 use Sys::Hostname qw/hostname/;
 
-my $version = "2.0-beta";
+my $version = "2.0";
 
 # parsing command line
 my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1);
@@ -65,7 +65,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$opts{R} = qq/-l "$opts{R}"/ if ($opts{R});
 		$opts{w} = qq/-hold_jid $opts{w}/ if ($opts{w});
 		my $asub = abs_path($0);
-		$cmd = qq(mkdir -p $_.out $_.err && echo '$asub -k \${SGE_TASK_ID} $_.sh' | qsub -N $_ -cwd )
+		$cmd = qq(mkdir -p $_.out $_.err && echo '$asub $opts{G} -g $opts{g} -k \${SGE_TASK_ID} $_.sh' | qsub -N $_ -cwd )
 			. qq(-t 1-$n_jobs -o '$_.out/\$TASK_ID.out' -e '$_.err/\$TASK_ID.err' $opts{R} $opts{q} $opts{w});
 	}
 	defined($opts{p})? (print "$cmd\n") : system($cmd);
@@ -82,17 +82,19 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	# launch command lines
 	my ($pid, %pids);
 	warn("[asub] --- BEGIN OF COMMAND STDERR ---\n");
-	if (defined $opts{G}) {
+	if (defined $opts{G}) { # in serial
 		$pid = 0;
 		for my $cmd (@cmds) {
 			++$pid;
-			$pids{$pid}[0] = $cmd;
+			$pids{"$pid"}[0] = $cmd;
 			system($cmd);
-			$pids{$pid}[1] = $?;
+			$pids{"$pid"}[1] = $?;
 		}
-	} else {
+	} else { # in parallel
 		for my $cmd (@cmds) {
-			if (($pid = fork()) != 0) { # this is the parent process
+			if (!defined($pid = fork())) { # fork failure
+				die("[asub] failed to fork. Abort!\n");
+			} elsif ($pid != 0) { # this the parent process
 				$pids{$pid}[0] = $cmd;
 			} else { # this is the child process
 				exec $cmd;
@@ -140,8 +142,8 @@ Program: asub (Array Job submission with bsub/qsub)
 Version: $version
 Contact: Heng Li <lh3\@sanger.ac.uk>\n
 Usage:   asub [options] <cmd_file>\n
-Options: -R STR    resources string [null]
-         -M INT    maximum memory in GB (LSF only) [null]
+Options: -R STR    resources string (only one -R allowed) [null]
+         -M INT    maximum total memory in GB (LSF only) [null]
          -W STR    runtime limit (LSF only) [none]
          -n INT    #CPUs per job (LSF only) [$opts{n}]
          -C STR    CPU time limit (LSF only) [none]
