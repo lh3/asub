@@ -11,13 +11,13 @@ use Sys::Hostname qw/hostname/;
 my $version = "2.0-beta";
 
 # parsing command line
-my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', n=>1, m=>'', W=>'', C=>'', g=>1);
-getopts('R:j:k:q:c:pw:M:n:m:W:g:C:', \%opts);
+my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1);
+getopts('R:j:k:q:c:pw:M:n:m:W:g:C:G', \%opts);
 &usage if (-t STDIN && @ARGV == 0);
 
 # adjusting parameters
 $opts{g} = 1 if $opts{g} < 1;
-$opts{n} = $opts{g} if $opts{n} < $opts{g};
+$opts{n} = $opts{g} if !defined($opts{G}) && $opts{n} < $opts{g};
 $opts{j} ||= sprintf("asub_$$%.3d", rand(1000));
 
 if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
@@ -39,6 +39,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	my $cmd;
 	$opts{c} = $n_jobs if $opts{c} && $opts{c} > $n_jobs;
 	$opts{q} = qq/-q $opts{q}/ if $opts{q};
+	$opts{G} = defined($opts{G})? "-G" : "";
 	$_ = $opts{j};
 	if (!$is_ge) { # LSF
 		$opts{c} = qq/\%$opts{c}/ if $opts{c};
@@ -58,7 +59,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		}
 
 		# the command line to bsub
-		$cmd = qq(mkdir -p $_.out $_.err && echo '$0 -g $opts{g} -k \${LSB_JOBINDEX} $_.sh' | bsub -J$_)
+		$cmd = qq(mkdir -p $_.out $_.err && echo '$0 $opts{G} -g $opts{g} -k \${LSB_JOBINDEX} $_.sh' | bsub -J$_)
 			   . qq("[1-$n_jobs]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{R} $opts{q} $opts{w} $opts{m});
 	} else { # SGE
 		$opts{R} = qq/-l "$opts{R}"/ if ($opts{R});
@@ -81,15 +82,25 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	# launch command lines
 	my ($pid, %pids);
 	warn("[asub] --- BEGIN OF COMMAND STDERR ---\n");
-	for my $cmd (@cmds) {
-		if (($pid = fork()) != 0) { # this is the parent process
+	if (defined $opts{G}) {
+		$pid = 0;
+		for my $cmd (@cmds) {
+			++$pid;
 			$pids{$pid}[0] = $cmd;
-		} else { # this is the child process
-			exec $cmd;
+			system($cmd);
+			$pids{$pid}[1] = $?;
 		}
-	}
-	while (($pid = wait()) >= 0) {
-		$pids{$pid}[1] = $?;
+	} else {
+		for my $cmd (@cmds) {
+			if (($pid = fork()) != 0) { # this is the parent process
+				$pids{$pid}[0] = $cmd;
+			} else { # this is the child process
+				exec $cmd;
+			}
+		}
+		while (($pid = wait()) >= 0) {
+			$pids{$pid}[1] = $?;
+		}
 	}
 	warn("[asub] --- END OF COMMAND STDERR ---\n");
 
@@ -140,6 +151,7 @@ Options: -R STR    resources string [null]
          -c INT    number of concurrent jobs (LSF only) [max]
          -m STR    host group (LSF only) [null]
          -g INT    group INT command lines in one job [$opts{g}]
+         -G        serializing {-g}
          -p        print the submission command only
 
 Note: For option -R and -w, SGE and LSF have different syntax. Please
