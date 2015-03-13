@@ -8,12 +8,13 @@ use Getopt::Std;
 use Cwd qw/abs_path/;
 use Sys::Hostname qw/hostname/;
 
-my $version = "0.1.8";
+my $version = "0.1.9";
 
 my %opts = (R=>'', j=>'', k=>0, q=>'', c=>'', w=>'', M=>'', n=>'', m=>'', W=>'');
 getopts('R:j:k:q:c:pw:M:n:m:W:', \%opts);
 &usage if (-t STDIN && @ARGV == 0);
 my $is_run = ($opts{k} > 0 && $opts{j})? 1 : 0;
+my $n_cpus = $opts{n}? $opts{n} : 1;
 if (!$is_run) { # prepare to run
   my $is_sge = &which('bsub')? 0 : 1;
   $opts{j} ||= sprintf("asub_$$%.3d", rand(1000));
@@ -47,13 +48,14 @@ if (!$is_run) { # prepare to run
 	  }
 	}
 	if ($opts{M}) {
+	  my $mem = int($opts{M} * 1024 / $n_cpus);
 	  if ($opts{R}) {
 		chop($opts{R}); # chop the tailing "
-		$opts{R} .= qq/ select[mem>$opts{M}] rusage[mem=$opts{M}]"/;
+		$opts{R} .= qq/ rusage[mem=$mem]"/;
 	  } else {
-		$opts{R} = qq/-R "select[mem>$opts{M}] rusage[mem=$opts{M}]"/;
+		$opts{R} = qq/-R "rusage[mem=$mem]"/;
 	  }
-	  $opts{R} .= ' -M ' . ($opts{M}*1000);
+	  #$opts{R} .= ' -M ' . ($opts{M}*1000);
 	}
 	$cmd = qq(mkdir -p $_.out $_.err && echo '$0 -j $_.sh -k \${LSB_JOBINDEX}' | bsub -J$_)
 	  . qq("[1-$K]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{n} $opts{R} $opts{q} $opts{w} $opts{m} $opts{W});
@@ -114,10 +116,10 @@ Options: -R STR    resources string [null]
          -w STR    job dependency [null]
          -q STR    queue name [default queue]
          -j STR    job name [auto]
-         -c INT    number of processors (LSF only) [max]
-         -M INT    maximum memory in MB (Sanger LSF only) [null]
+         -c INT    number of concurrent jobs (LSF only) [max]
+         -M INT    maximum memory in MB (LSF only) [null]
          -W INT    runtime limit (LSF only) [none]
-         -n INT    # CPUs for a parallel job (LSF only) [null]
+         -n INT    #CPUs per job (LSF only) [null]
          -m STR    host group (LSF only) [null]
          -p        print the submission command only
 
