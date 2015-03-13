@@ -17,7 +17,7 @@ getopts('R:j:k:q:c:pw:M:n:m:W:g:C:G', \%opts);
 
 # adjusting parameters
 $opts{g} = 1 if $opts{g} < 1;
-$opts{n} = $opts{g} if !defined($opts{G}) && $opts{n} < $opts{g};
+$opts{n} = $opts{g} if !$opts{G} && $opts{n} < $opts{g};
 $opts{j} ||= sprintf("asub_$$%.3d", rand(1000));
 
 if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
@@ -54,7 +54,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$opts{R} .= qq/ -R "span[hosts=1]"/ if $opts{n};
 		if ($opts{M}) {
 			my $mem = int($opts{M} * 1024 / $opts{n}); # in LSF, rusage and -M set per-process limit
-			$opts{R} .= qq/ -R "rusage[mem=$mem]/;
+			$opts{R} .= qq/ -R "rusage[mem=$mem]"/;
 			#$opts{R} .= qq/ -M $mem/;
 		}
 
