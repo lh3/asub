@@ -39,7 +39,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	my $cmd;
 	$opts{c} = $n_jobs if $opts{c} && $opts{c} > $n_jobs;
 	$opts{q} = qq/-q $opts{q}/ if $opts{q};
-	$opts{G} = defined($opts{G})? "-G" : "";
+	$opts{G} = $opts{G}? "-G" : "";
 	$_ = $opts{j};
 	if (!$is_ge) { # LSF
 		$opts{c} = qq/\%$opts{c}/ if $opts{c};
