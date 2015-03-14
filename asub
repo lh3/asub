@@ -82,7 +82,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	# launch command lines
 	my ($pid, %pids);
 	warn("[asub] --- BEGIN OF COMMAND STDERR ---\n");
-	if (defined $opts{G}) { # in serial
+	if ($opts{G}) { # in serial
 		$pid = 0;
 		for my $cmd (@cmds) {
 			++$pid;
