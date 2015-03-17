@@ -60,7 +60,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 
 		# the command line to bsub
 		$cmd = qq(mkdir -p $_.out $_.err && echo '$0 $opts{G} -g $opts{g} -k \${LSB_JOBINDEX} $_.sh' | bsub -J$_)
-			   . qq("[1-$n_jobs]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{R} $opts{q} $opts{w} $opts{m});
+			   . qq("[1-$n_jobs]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{R} $opts{q} $opts{w});
 	} else { # SGE
 		$opts{R} = qq/-l "$opts{R}"/ if $opts{R};
 		$opts{R} .= qq/ -pe $opts{P} $opts{n}/ if $opts{n} > 1;
