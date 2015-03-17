@@ -11,8 +11,8 @@ use Sys::Hostname qw/hostname/;
 my $version = "2.0";
 
 # parsing command line
-my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1);
-getopts('R:j:k:q:c:pw:M:n:m:W:g:C:G', \%opts);
+my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp');
+getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:G', \%opts);
 &usage if (-t STDIN && @ARGV == 0);
 
 # adjusting parameters
@@ -62,10 +62,16 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$cmd = qq(mkdir -p $_.out $_.err && echo '$0 $opts{G} -g $opts{g} -k \${LSB_JOBINDEX} $_.sh' | bsub -J$_)
 			   . qq("[1-$n_jobs]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{R} $opts{q} $opts{w} $opts{m});
 	} else { # SGE
-		$opts{R} = qq/-l "$opts{R}"/ if ($opts{R});
-		$opts{w} = qq/-hold_jid $opts{w}/ if ($opts{w});
+		$opts{R} = qq/-l "$opts{R}"/ if $opts{R};
+		$opts{R} .= qq/ -pe $opts{P} $opts{n}/ if $opts{n} > 1;
+		$opts{R} .= qq/ -l h_rt=$opts{W} -l s_rt=$opts{W}/ if $opts{W};
+		if ($opts{M}) {
+			my $mem = int($opts{M} * 1024 / $opts{n});
+			$opts{R} .= qq/ -l h_vmem=$mem/ . qq/M/;
+		}
+		$opts{w} = qq/-hold_jid $opts{w}/ if $opts{w};
 		my $asub = abs_path($0);
-		$cmd = qq(mkdir -p $_.out $_.err && echo '$asub $opts{G} -g $opts{g} -k \${SGE_TASK_ID} $_.sh' | qsub -N $_ -cwd )
+		$cmd = qq(mkdir -p $_.out $_.err && echo '$asub $opts{G} -g $opts{g} -k \${SGE_TASK_ID} $_.sh' | qsub -V -N $_ -cwd )
 			. qq(-t 1-$n_jobs -o '$_.out/\$TASK_ID.out' -e '$_.err/\$TASK_ID.err' $opts{R} $opts{q} $opts{w});
 	}
 	defined($opts{p})? (print "$cmd\n") : system($cmd);
