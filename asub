@@ -8,7 +8,7 @@ use Getopt::Std;
 use Cwd qw/abs_path/;
 use Sys::Hostname qw/hostname/;
 
-my $version = "2.0";
+my $version = "2.1";
 
 # parsing command line
 my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp');
@@ -22,6 +22,7 @@ $opts{j} ||= sprintf("asub_$$%.3d", rand(1000));
 
 if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	# LSF or Grid Engine?
+	my $is_slurm = &which('sbatch')? 1 : 0;
 	my $is_ge = &which('bsub')? 0 : 1;
 	die ("ERROR: option -g only works with LSF for now\n") if ($is_ge && $opts{g} != 1);
 
@@ -38,10 +39,16 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 
 	my $cmd;
 	$opts{c} = $n_jobs if $opts{c} && $opts{c} > $n_jobs;
-	$opts{q} = qq/-q $opts{q}/ if $opts{q};
 	$opts{G} = $opts{G}? "-G" : "";
 	$_ = $opts{j};
-	if (!$is_ge) { # LSF
+	if ($is_slurm) {
+		$opts{q} = qq/-p $opts{q}/ if $opts{q};
+		$opts{R} = qq/--mem=$opts{M}/ if $opts{M};
+		$opts{R} .= qq/ --ntasks=1 --cpus-per-tasks=$opts{n}/ if $opts{n} > 1;
+		$cmd = qq(mkdir -p $_.out $_.err && echo -e '#!/bin/sh\\n$0 $opts{G} -g $opts{g} -k \${SLURM_ARRAY_TASK_ID} $_.sh' | sbatch -J$_ )
+			. qq(--array=1-$n_jobs -o $_.out/\%a.out -e $_.err/\%a.err $opts{R} $opts{q});
+	} elsif (!$is_ge) { # LSF
+		$opts{q} = qq/-q $opts{q}/ if $opts{q};
 		$opts{c} = qq/\%$opts{c}/ if $opts{c};
 		$opts{w} = qq/-w "$opts{w}"/ if $opts{w};
 
@@ -62,6 +69,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$cmd = qq(mkdir -p $_.out $_.err && echo '$0 $opts{G} -g $opts{g} -k \${LSB_JOBINDEX} $_.sh' | bsub -J$_)
 			   . qq("[1-$n_jobs]$opts{c}" -o $_.out/\%I.out -e $_.err/\%I.err $opts{R} $opts{q} $opts{w});
 	} else { # SGE
+		$opts{q} = qq/-q $opts{q}/ if $opts{q};
 		$opts{R} = qq/-l "$opts{R}"/ if $opts{R};
 		$opts{R} .= qq/ -pe $opts{P} $opts{n}/ if $opts{n} > 1;
 		$opts{R} .= qq/ -l h_rt=$opts{W} -l s_rt=$opts{W}/ if $opts{W};
