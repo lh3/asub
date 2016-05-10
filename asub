@@ -43,8 +43,9 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	$_ = $opts{j};
 	if ($is_slurm) {
 		$opts{q} = qq/-p $opts{q}/ if $opts{q};
-		$opts{R} = qq/--mem=$opts{M}/ if $opts{M};
-		$opts{R} .= qq/ --ntasks=1 --cpus-per-tasks=$opts{n}/ if $opts{n} > 1;
+		$opts{R} = qq/--mem=/ . ($opts{M}*1024) if $opts{M};
+		$opts{R} .= qq/ -N 1 -n $opts{n}/ if $opts{n} > 1;
+		$opts{R} .= qq/ -t $opts{W}/ if $opts{W};
 		$cmd = qq(mkdir -p $_.out $_.err && echo -e '#!/bin/sh\\n$0 $opts{G} -g $opts{g} -k \${SLURM_ARRAY_TASK_ID} $_.sh' | sbatch -J$_ )
 			. qq(--array=1-$n_jobs -o $_.out/\%a.out -e $_.err/\%a.err $opts{R} $opts{q});
 	} elsif (!$is_ge) { # LSF
