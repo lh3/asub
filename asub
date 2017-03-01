@@ -96,13 +96,14 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 
 	# launch command lines
 	my ($pid, %pids);
+    my $shell = $ENV{'SHELL'} || '/bin/sh';
 	warn("[asub] --- BEGIN OF COMMAND STDERR ---\n");
 	if ($opts{G}) { # in serial
 		$pid = 0;
 		for my $cmd (@cmds) {
 			++$pid;
 			$pids{"$pid"}[0] = $cmd;
-			system($cmd);
+			system("$shell", "-c", $cmd);
 			$pids{"$pid"}[1] = $?;
 		}
 	} else { # in parallel
@@ -112,7 +113,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 			} elsif ($pid != 0) { # this the parent process
 				$pids{$pid}[0] = $cmd;
 			} else { # this is the child process
-				exec $cmd;
+				exec "$shell", "-c", $cmd;
 			}
 		}
 		while (($pid = wait()) >= 0) {
