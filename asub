@@ -104,7 +104,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 			++$pid;
 			$pids{"$pid"}[0] = $cmd;
 			system("$shell", "-c", $cmd);
-			$pids{"$pid"}[1] = $?;
+			$pids{"$pid"}[1] = $? >> 8;
 		}
 	} else { # in parallel
 		for my $cmd (@cmds) {
@@ -117,7 +117,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 			}
 		}
 		while (($pid = wait()) >= 0) {
-			$pids{$pid}[1] = $?;
+			$pids{$pid}[1] = $? >> 8;
 		}
 	}
 	warn("[asub] --- END OF COMMAND STDERR ---\n");
