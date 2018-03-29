@@ -41,6 +41,10 @@ each individual command line runs too fast.
 For now, `asub` only has limited support of Grid Engine. I used to have a
 better version for SGE, but have lost it. Contribution welcomed!
 
+#### Does asub support SLURM?
+
+Yes, but not as well supported as LSF.
+
 #### How does asub work?
 
 `asub` has two modes: submission mode and laucher mode. Endusers only need to
