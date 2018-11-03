@@ -11,8 +11,8 @@ use Sys::Hostname qw/hostname/;
 my $version = "2.1";
 
 # parsing command line
-my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp');
-getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:G', \%opts);
+my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', N=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp');
+getopts('P:R:j:k:q:c:pw:M:Nn:m:W:g:C:G', \%opts);
 &usage if (-t STDIN && @ARGV == 0);
 
 # adjusting parameters
@@ -62,8 +62,10 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$opts{R} .= qq/ -R "span[hosts=1]"/ if $opts{n};
 		if ($opts{M}) {
 			my $mem = int($opts{M} * 1024 / $opts{n}); # in LSF, rusage and -M set per-process limit
+			if ($opts{N}) {
+				$opts{R} .= qq/ -M $mem/;
+			}
 			$opts{R} .= qq/ -R "rusage[mem=$mem]"/;
-			#$opts{R} .= qq/ -M $mem/;
 		}
 
 		# the command line to bsub
@@ -160,6 +162,7 @@ Contact: Heng Li <lh3\@sanger.ac.uk>\n
 Usage:   asub [options] <cmd_file>\n
 Options: -R STR    resources string (only one -R allowed) [null]
          -M INT    maximum total memory in GB [null]
+         -N        when -M used in this script, use -M in bsub call
          -W STR    runtime limit [none]
          -n INT    #CPUs per job [$opts{n}]
          -C STR    CPU time limit (LSF only) [none]
