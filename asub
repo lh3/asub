@@ -8,11 +8,11 @@ use Getopt::Std;
 use Cwd qw/abs_path/;
 use Sys::Hostname qw/hostname/;
 
-my $version = "2.1";
+my $version = "2.1.1-r24";
 
 # parsing command line
 my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp');
-getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:G', \%opts);
+getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:Gx:', \%opts);
 &usage if (-t STDIN && @ARGV == 0);
 
 # adjusting parameters
@@ -46,8 +46,9 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$opts{R} = qq/--mem=/ . ($opts{M}*1024) if $opts{M} && $opts{M} =~ /^\d+$/;
 		$opts{R} .= qq/ -N1 -n$opts{n}/ if $opts{n} > 1;
 		$opts{R} .= qq/ -t$opts{W}/ if $opts{W};
+		$opts{x} = qq/-x $opts{x}/ if defined($opts{x}) && $opts{x};
 		$cmd = qq(mkdir -p $_.out $_.err && echo -e '#!/bin/sh\\n$0 $opts{G} -g $opts{g} -k \${SLURM_ARRAY_TASK_ID} $_.sh' | sbatch -J$_ )
-			. qq(--array=1-$n_jobs -o $_.out/\%a.out -e $_.err/\%a.err $opts{R} $opts{q});
+			. qq(--array=1-$n_jobs -o $_.out/\%a.out -e $_.err/\%a.err $opts{R} $opts{q} $opts{x});
 	} elsif (!$is_ge) { # LSF
 		$opts{q} = qq/-q $opts{q}/ if $opts{q};
 		$opts{c} = qq/\%$opts{c}/ if $opts{c};
@@ -156,7 +157,7 @@ sub usage {
   die qq(
 Program: asub (Array Job submission with bsub/qsub)
 Version: $version
-Contact: Heng Li <lh3\@sanger.ac.uk>\n
+Contact: Heng Li <lh3\@me.com>\n
 Usage:   asub [options] <cmd_file>\n
 Options: -R STR    resources string (only one -R allowed) [null]
          -M INT    maximum total memory in GB [null]
@@ -169,6 +170,7 @@ Options: -R STR    resources string (only one -R allowed) [null]
          -c INT    number of concurrent jobs (LSF only) [max]
          -m STR    host group (LSF only) [null]
          -g INT    group INT command lines in one job [$opts{g}]
+		 -x STR    exclude nodes (SLURM only) []
          -G        serializing {-g}
          -p        print the submission command only
 
