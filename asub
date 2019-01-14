@@ -11,7 +11,7 @@ use Sys::Hostname qw/hostname/;
 my $version = "2.1.1-r24";
 
 # parsing command line
-my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp');
+my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp', x=>'');
 getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:Gx:', \%opts);
 &usage if (-t STDIN && @ARGV == 0);
 
