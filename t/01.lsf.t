@@ -43,10 +43,12 @@ note "LSF";
 ($sh = $out) =~ s{^.*(asub_[0-9]+\.sh).*$}{$1};
 ok $sh;
 is $err, '', 'no error messages';
-
+bsub_arguments_ok $out,
+    resources => sub { is pop->{resources}, 'span[hosts=1]', 'default span' };
 
 note "LSF";
-($out, $err) = $t->asub_run_ok_with_lsf("echo hello world\n", qw{-R rusage[mem=200]});
+($out, $err) = $t->asub_run_ok_with_lsf("echo hello world\n",
+                                        qw{-R rusage[mem=200]});
 ($sh = $out) =~ s{^.*(asub_[0-9]+\.sh).*$}{$1};
 ok $sh;
 like $out, qr/\|\sbsub/, 'LSF submission command';
@@ -59,10 +61,8 @@ bsub_arguments_ok $out,
             'R=s@' => \my @resources,
             );
         is $ret, 1, 'success';
-        {
-            local $TODO = 'single -R option to bsub';
-            is @resources, 1, 'single -R option';
-        }
+        is @resources, 1, 'single -R option';
+        is shift->{resources}, 'rusage[mem=200] span[hosts=1]';
 },
     jobname => sub {
         my ($opts, $parsed) = @_;
