@@ -1,0 +1,74 @@
+# -*- mode: perl; -*-
+use strict;
+use warnings;
+use Test::More;
+use Getopt::Long;
+use lib 't/lib';
+use Test::asub;
+no lib 't/lib';
+
+my ($sh, $out, $err);
+
+my $t = Test::asub->new();
+
+sub bsub_arguments_ok {
+    my ($asub_cmd, %tests) = (shift, @_);
+    (my $bsub_opts = $out) =~ s/^.*\|\sbsub\s(.*)/$1/g;
+    Getopt::Long::Configure(qw{pass_through bundling});
+    my %parsed;
+    my ($ret, $args) = Getopt::Long::GetOptionsFromString(
+        $bsub_opts,
+        'R=s' => \$parsed{resources},
+        'J=s' => \$parsed{jobname},
+        'm=s' => \$parsed{hosts},
+        'n=s' => \$parsed{processors},
+        'o=s' => \$parsed{outfile},
+        'e=s' => \$parsed{errfile},
+        'W=s' => \$parsed{runtimelimit},
+        'c=s' => \$parsed{cputimelimit},
+        'q=s' => \$parsed{queue},
+        'w=s' => \$parsed{dependency}
+        );
+    is $ret, 1, 'successful parse';
+    
+    foreach my $test(keys %tests) {
+        subtest $test => sub {
+            $tests{$test}->($bsub_opts, \%parsed);
+        };
+    }
+}
+
+note "LSF";
+($out, $err) = $t->asub_run_ok_with_lsf("echo hello world\n");
+($sh = $out) =~ s{^.*(asub_[0-9]+\.sh).*$}{$1};
+ok $sh;
+is $err, '', 'no error messages';
+
+
+note "LSF";
+($out, $err) = $t->asub_run_ok_with_lsf("echo hello world\n", qw{-R rusage[mem=200]});
+($sh = $out) =~ s{^.*(asub_[0-9]+\.sh).*$}{$1};
+ok $sh;
+like $out, qr/\|\sbsub/, 'LSF submission command';
+is $err, '', 'no error messages';
+
+bsub_arguments_ok $out,
+    resources => sub {
+        my ($ret, $args) = Getopt::Long::GetOptionsFromString(
+            shift,
+            'R=s@' => \my @resources,
+            );
+        is $ret, 1, 'success';
+        {
+            local $TODO = 'single -R option to bsub';
+            is @resources, 1, 'single -R option';
+        }
+},
+    jobname => sub {
+        my ($opts, $parsed) = @_;
+        like $parsed->{jobname}, qr/^asub_[0-9]+\[1\-1\]$/;
+};
+
+
+
+done_testing;
