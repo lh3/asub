@@ -11,13 +11,23 @@ matrix:
     - perl: "5.10"
       dist: trusty
 
+env:
+  global:
+    - HARNESS_OPTIONS=j5
+
+sudo: false
+notifications:
+  email: false
+
 before_install:
   - cpanm --installdeps -n -q .
-  - cpanm -n -q Devel::Cover
+  - cpanm -n -q Devel::Cover Devel::Cover::Report::Coveralls
 
 install:
   - true
 
 script:
-  - prove -v
-  - cover -t +select ^asub +ignore ^t -make 'prove; exit $?; '
+  - cover -t +select ^asub +ignore ^t -make 'prove -v; exit $?; '
+
+after_success:
+  - cover -report coveralls
