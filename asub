@@ -110,7 +110,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	} else { # in parallel
 		for my $cmd (@cmds) {
 			if (!defined($pid = fork())) { # fork failure
-				die("[asub] failed to fork. Abort!\n");
+				die("[asub] failed to fork. Abort!\n"); # uncoverable statement
 			} elsif ($pid != 0) { # this the parent process
 				$pids{$pid}[0] = $cmd;
 			} else { # this is the child process

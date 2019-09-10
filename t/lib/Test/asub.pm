@@ -1,5 +1,6 @@
 package
     Test::asub;
+use Getopt::Long ();
 use File::Basename 'dirname';
 use File::Spec::Functions 'catfile';
 use File::Temp qw{tempdir tempfile};
@@ -8,6 +9,25 @@ use Cwd ();
 use feature 'state';
 
 use constant COLLECT_COVERAGE => $INC{'Devel/Cover.pm'} ? 1 : 0;
+
+sub asub_arguments_ok {
+    my ($self, $out, %tests) = (shift, shift, @_);
+    my $asub = $self->pipeline_asub_command($out);
+    Getopt::Long::Configure(qw{pass_through bundling});
+    my %parsed;
+    my ($ret, $args) = Getopt::Long::GetOptionsFromString($asub,
+        'G'   => \$parsed{group},
+        'g=i' => \$parsed{group_size},
+        'k=s' => \$parsed{index});
+    $self->_test(is =>$ret, 1, 'success');
+    for my $name(keys %tests) {
+        $self->_test(subtest => $name,
+                     sub {
+                         $tests{$name}->({ %parsed });
+                     });
+    }
+    $self;
+}
 
 sub asub_compile_ok {
     my ($self, $stdout, $stderr) = (shift);
@@ -70,13 +90,15 @@ sub asub_run_ok_with_slurm {
 }
 
 sub farm_context {
-    my ($self, $max_commands) = (shift, shift || 10);
-    $self->{job_id}  = int rand $max_commands;
+    my ($self, $max_commands, @serial) = (shift, shift || 10, grep { $_ eq '-G' } @_);
+    $self->{job_id}  = @serial ? 1 : int rand $max_commands;
     $self->{job_id}||= 1;
     $self->{script}  = catfile tempdir(), 'farm.sh';
-    $self->{command} = [
-        $self->_executable_opts, '-g', 1, '-k', $self->{job_id}, $self->{script}
-        ];
+    $self->{group}   = @serial ? $max_commands : 1;
+    $self->{command} = [ $self->_executable_opts, @serial,
+                         '-g' => $self->{group},
+                         '-k' => $self->{job_id},
+                         $self->{script} ];
     $self;
 }
 
@@ -92,6 +114,16 @@ sub new {
     asub_path();
     mock_bin();
     return bless {}, __PACKAGE__;
+}
+
+sub pipeline_asub_command {
+    my ($self, $pipeline) = (shift, shift);
+    my (@pipeline) = split /\s\|\s/ => $pipeline;
+    my $asub_path  = $self->asub_path;
+    (my $asub = $pipeline[0]) =~ s/^.*($asub_path[^']+)'$/$1/;
+    # for tests this should be true
+    $self->_test(like => $asub, qr{^$asub_path}, 'regex success');
+    return $asub;
 }
 
 sub pipeline_runs_command {

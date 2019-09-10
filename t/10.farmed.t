@@ -49,4 +49,25 @@ is @messages, 1, 'one message';
 like $_, qr/^hello world [0-9]+/ for @messages;
 is $out, '', 'nothing output';
 
+$t->farm_context(10, '-G')->write_farm_script(
+q/echo "hello world 1" >&2/,
+q/echo "hello world 2" >&2/,
+q/echo "hello world 3" >&2/,
+q/echo "hello world 4" >&2/,
+q/echo "hello world 5" >&2/,
+q/echo "hello world 6" >&2/,
+q/echo "hello world 7" >&2/,
+q/echo "hello world 8" >&2/,
+q/echo "hello world 9" >&2/,
+q/echo "hello world 10" >&2/,
+);
+
+($out, $err) = $t->asub_farm_run_ok();
+
+@messages = grep { m/^[^[]/ } split /\n/ => $err;
+is @messages, 10, 'one message';
+like $_, qr/^hello world [0-9]+/ for @messages;
+is $out, '', 'nothing output';
+
+
 done_testing;
