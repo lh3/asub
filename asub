@@ -55,17 +55,20 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$opts{w} = qq/-w "$opts{w}"/ if $opts{w};
 
 		# resource requirements and limits
-		$opts{R} = qq/-R "$opts{R}"/ if $opts{R};
+		my @res_req;
+		my $r_opt = delete $opts{R};
+		push @res_req, $r_opt          if $r_opt;
+		push @res_req, 'span[hosts=1]' if $opts{n};
+		if ($opts{M}) {
+			my $mem = int($opts{M} * 1024 / $opts{n}); # in LSF, rusage and -M set per-process limit
+			push @res_req, "rusage[mem=$mem]";
+			#$opts{R} .= qq/ -M $mem/;
+		}
+		$opts{R}  = qq/-R "@res_req"/ if @res_req;
 		$opts{R} .= qq/ -m $opts{m}/ if $opts{m};
 		$opts{R} .= qq/ -n $opts{n}/ if $opts{n};
 		$opts{R} .= qq/ -W $opts{W}/ if $opts{W};
 		$opts{R} .= qq/ -c $opts{C}/ if $opts{C};
-		$opts{R} .= qq/ -R "span[hosts=1]"/ if $opts{n};
-		if ($opts{M}) {
-			my $mem = int($opts{M} * 1024 / $opts{n}); # in LSF, rusage and -M set per-process limit
-			$opts{R} .= qq/ -R "rusage[mem=$mem]"/;
-			#$opts{R} .= qq/ -M $mem/;
-		}
 
 		# the command line to bsub
 		$cmd = qq(mkdir -p $_.out $_.err && echo '$0 $opts{G} -g $opts{g} -k \${LSB_JOBINDEX} $_.sh' | bsub -J$_)
@@ -110,7 +113,7 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	} else { # in parallel
 		for my $cmd (@cmds) {
 			if (!defined($pid = fork())) { # fork failure
-				die("[asub] failed to fork. Abort!\n");
+				die("[asub] failed to fork. Abort!\n"); # uncoverable statement
 			} elsif ($pid != 0) { # this the parent process
 				$pids{$pid}[0] = $cmd;
 			} else { # this is the child process
