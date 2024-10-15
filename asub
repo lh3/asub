@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Author: lh3
+# Author: Heng Li
 
 use strict;
 use warnings;
@@ -8,11 +8,15 @@ use Getopt::Std;
 use Cwd qw/abs_path/;
 use Sys::Hostname qw/hostname/;
 
-my $version = "2.1.1-r24";
+my $version = "2.2-r26";
 
 # parsing command line
-my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp', x=>'');
-getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:Gx:', \%opts);
+my %opts = (R=>'', j=>'', q=>'', c=>'', w=>'', M=>'', G=>'', n=>1, m=>'', W=>'', C=>'', g=>1, P=>'smp', x=>'', y=>'');
+getopts('P:R:j:k:q:c:pw:M:n:m:W:g:C:Gx:y:v', \%opts);
+if (defined $opts{v}) { # print version number
+	print($version, "\n");
+	exit(0);
+}
 &usage if (-t STDIN && @ARGV == 0);
 
 # adjusting parameters
@@ -21,7 +25,7 @@ $opts{n} = $opts{g} if !$opts{G} && $opts{n} < $opts{g};
 $opts{j} ||= sprintf("asub_$$%.3d", rand(1000));
 
 if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
-	# LSF or Grid Engine?
+	# Slurm, LSF or Grid Engine?
 	my $is_slurm = &which('sbatch')? 1 : 0;
 	my $is_ge = &which('bsub')? 0 : 1;
 	die ("ERROR: option -g only works with LSF for now\n") if ($is_ge && $opts{g} != 1);
@@ -46,9 +50,10 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		$opts{R} = qq/--mem=/ . ($opts{M}*1024) if $opts{M} && $opts{M} =~ /^\d+$/;
 		$opts{R} .= qq/ -N1 -n$opts{n}/ if $opts{n} > 1;
 		$opts{R} .= qq/ -t$opts{W}/ if $opts{W};
+		$opts{y} = qq/-w $opts{y}/ if defined($opts{y}) && $opts{y};
 		$opts{x} = qq/-x $opts{x}/ if defined($opts{x}) && $opts{x};
 		$cmd = qq(mkdir -p $_.out $_.err && echo -e '#!/bin/sh\\n$0 $opts{G} -g $opts{g} -k \${SLURM_ARRAY_TASK_ID} $_.sh' | sbatch -J$_ )
-			. qq(--array=1-$n_jobs -o $_.out/\%a.out -e $_.err/\%a.err $opts{R} $opts{q} $opts{x});
+			. qq(--array=1-$n_jobs -o $_.out/\%a.out -e $_.err/\%a.err $opts{R} $opts{q} $opts{x} $opts{y});
 	} elsif (!$is_ge) { # LSF
 		$opts{q} = qq/-q $opts{q}/ if $opts{q};
 		$opts{c} = qq/\%$opts{c}/ if $opts{c};
@@ -86,13 +91,21 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 	}
 	defined($opts{p})? (print "$cmd\n") : system($cmd);
 } else { # run the command
-	warn("[asub] Hostname: ".hostname.", Arch-OS: ".&get_cpu_sys."\n");
+	my $gmt_time = gmtime();
+	warn("[asub] Hostname: ".hostname.", Arch-OS: ".&get_cpu_sys.", Start-GMT: $gmt_time\n");
+
+	# collect command lines
 	my $lineno = 0;
 	my @cmds = ();
 	while (<>) {
 		chomp;
 		++$lineno;
 		push(@cmds, $_) if $lineno > ($opts{k} - 1) * $opts{g} && $lineno <= $opts{k} * $opts{g};
+	}
+
+	# log command lines; they will show again if the job is completed without errors
+	for my $cmd (@cmds) {
+		warn("[asub] CMD: $cmd\n");
 	}
 
 	# launch command lines
@@ -130,6 +143,8 @@ if (!defined($opts{k}) || $opts{k} < 1) { # prepare to run
 		warn("[asub] The following command (PID=$pid) returns $pids{$pid}[1]\n");
 		warn("[asub]   $pids{$pid}[0]\n");
 	}
+	$gmt_time = gmtime();
+	warn("[asub] End-GMT: $gmt_time\n");
 	exit $ret;
 }
 
@@ -154,37 +169,33 @@ sub which {
 }
 
 sub usage {
-  die qq(
-Program: asub (Array Job submission with bsub/qsub)
-Version: $version
-Contact: Heng Li <lh3\@me.com>\n
-Usage:   asub [options] <cmd_file>\n
-Options: -R STR    resources string (only one -R allowed) [null]
-         -M INT    maximum total memory in GB [null]
-         -W STR    runtime limit [none]
-         -n INT    #CPUs per job [$opts{n}]
-         -C STR    CPU time limit (LSF only) [none]
-         -w STR    job dependency [null]
-         -q STR    queue name [default queue]
-         -j STR    job name [auto]
-         -c INT    number of concurrent jobs (LSF only) [max]
-         -m STR    host group (LSF only) [null]
-         -g INT    group INT command lines in one job [$opts{g}]
-		 -x STR    exclude nodes (SLURM only) []
-         -G        serializing {-g}
-         -p        print the submission command only
-
+  die qq(Usage: asub [options] <cmd_file>
+Options:
+  General:
+    -j STR    job name [random]
+    -q STR    queue name [default queue]
+    -M INT    maximum total memory in GB []
+    -W STR    runtime limit []
+    -n INT    #CPUs per job [$opts{n}]
+    -g INT    group INT command lines in one job [$opts{g}]
+    -G        serialize -g
+    -p        print the submission command only (dry run)
+    -v        print version number
+  Specific:
+    -x STR    exclude nodes (SLURM only) []
+    -y STR    include nodes (SLURM only) []
+    -m STR    host group (LSF only) []
+    -R STR    resources string (LSF/SGE; only one -R allowed) [null]
+    -C STR    CPU time limit (LSF only) [none]
+    -w STR    job dependency (LSF/SGE) [null]
+    -c INT    number of concurrent jobs (LSF only) []
 Note: For option -R and -w, SGE and LSF have different syntax. Please
-      check SGE/LSF manual page for details. Here are some examples for
-      LSF:
-
-        -R "select[type==X86_64&&mem>800] rusage[mem=800]"
-        -w "done(my_job_001)"
-
-      And for SGE:
-
-        -R h_cpu=86400,h_data=1000000000
-        -w my_job_001
-
+  check SGE/LSF manual page for details. Here are some examples for
+  LSF:
+    -R "select[type==X86_64&&mem>800] rusage[mem=800]"
+    -w "done(my_job_001)"
+  And for SGE:
+    -R h_cpu=86400,h_data=1000000000
+    -w my_job_001
 );
 }
